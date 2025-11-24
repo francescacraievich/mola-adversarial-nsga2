@@ -32,6 +32,9 @@ site/
 *.bak
 *~
 
+# Local scripts (not to be committed)
+scripts/check_ci.sh
+
 # Data files
 data/
 *.bag
