@@ -1,0 +1,38 @@
+# Build artifacts
+build
+install
+log
+
+# Python
+.venv
+*.pyc
+__pycache__
+*.egg-info
+dist
+.pytest_cache
+.coverage
+htmlcov
+coverage.xml
+
+# IDE
+.vscode
+.idea
+
+# MkDocs
+site/
+
+# MOLA/SLAM outputs
+*.simplemap
+*.mm
+*.gv
+*.pdf
+
+# Temporary files
+*.tmp
+*.bak
+*~
+
+# Data files
+data/
+*.bag
+*.pcap
