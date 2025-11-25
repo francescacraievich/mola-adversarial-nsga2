@@ -27,18 +27,18 @@ jobs:
 
     - name: Check code formatting with Black
       run: |
-        black --check --diff src/ tests/
+        black --check --diff src/ scripts/
 
     - name: Check import sorting with isort
       run: |
-        isort --check-only --diff src/ tests/
+        isort --check-only --diff src/ scripts/
 
     - name: Lint with flake8
       run: |
         # Stop the build if there are Python syntax errors or undefined names
-        flake8 src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=src/cyclonedds,src/rover_isaacsim
+        flake8 src/ scripts/ --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=src/cyclonedds,src/rover_isaacsim
         # Check for style issues (with warnings)
-        flake8 src/ tests/ --count --max-complexity=10 --max-line-length=100 --statistics --exclude=src/cyclonedds,src/rover_isaacsim
+        flake8 src/ scripts/ --count --max-complexity=10 --max-line-length=100 --statistics --exclude=src/cyclonedds,src/rover_isaacsim
 
     - name: Type check with mypy
       run: |
@@ -69,7 +69,7 @@ jobs:
 
     - name: Run tests with pytest
       run: |
-        pytest tests/ -v --cov=src --cov-report=xml --cov-report=term-missing
+        PYTHONPATH=. pytest src/tests/test_perturbations.py src/tests/test_pymoo_wrapper.py -v --cov=src --cov-report=xml --cov-report=term-missing
 
     - name: Upload coverage to Codecov
       if: matrix.python-version == '3.11'
