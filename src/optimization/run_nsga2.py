@@ -56,7 +56,7 @@ class MOLAEvaluator(Node):
         lidar_topic: str = "/mola_nsga2/lidar",
         odom_topic: str = "/lidar_odometry/pose",
     ):
-        super().__init__("advanced_mola_evaluator")
+        super().__init__("mola_evaluator")
 
         self.perturbation_generator = perturbation_generator
         self.ground_truth_trajectory = ground_truth_trajectory
@@ -355,7 +355,7 @@ class MOLAEvaluator(Node):
 
 def _parse_args():
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description="NSGA-II with advanced adversarial perturbations")
+    parser = argparse.ArgumentParser(description="NSGA-II optimization for adversarial perturbations")
     parser.add_argument("--gt-traj", type=str, default="maps/ground_truth_trajectory.tum")
     parser.add_argument("--frames", type=str, default="data/frame_sequence.npy")
     parser.add_argument("--mola-binary", type=str, default="/opt/ros/jazzy/bin/mola-cli")
@@ -504,7 +504,7 @@ def _run_optimization(args, problem, algorithm, history_callback):
 def _print_header(args):
     """Print optimization header with settings."""
     print("\n" + "=" * 80)
-    print(" NSGA-II with ADVANCED ADVERSARIAL PERTURBATIONS")
+    print(" NSGA-II ADVERSARIAL PERTURBATION OPTIMIZATION")
     print("=" * 80)
     print("\nPerturbation settings (based on research papers):")
     print(f"  Max point shift: {args.max_point_shift * 100:.1f} cm")
