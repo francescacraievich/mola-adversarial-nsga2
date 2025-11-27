@@ -553,6 +553,7 @@ def _setup_optimizer(args, evaluator, generator):
     from pymoo.algorithms.moo.nsga2 import NSGA2
     from pymoo.core.callback import Callback
     from pymoo.core.problem import Problem
+    from pymoo.core.sampling import Sampling
     from pymoo.operators.crossover.sbx import SBX
     from pymoo.operators.mutation.pm import PM
     from pymoo.operators.sampling.rnd import FloatRandomSampling
@@ -587,8 +588,8 @@ def _setup_optimizer(args, evaluator, generator):
     algorithm = NSGA2(
         pop_size=args.pop_size,
         sampling=FloatRandomSampling(),
-        crossover=SBX(prob=0.9, eta=15),
-        mutation=PM(eta=20),
+        crossover=SBX(prob=0.9, eta=10),  # Lower eta = more exploration (was 15)
+        mutation=PM(prob=0.3, eta=10),    # Higher prob + lower eta = more exploration (was eta=20, no prob)
         eliminate_duplicates=True,
     )
     history_callback = SaveHistoryCallback()

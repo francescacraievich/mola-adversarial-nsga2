@@ -400,29 +400,43 @@ class PerturbationGenerator:
         """
         Compute perturbation magnitude for NSGA-II objective.
 
-        Returns Chamfer distance in centimeters - this is the standard metric
-        for point cloud perturbation imperceptibility.
+        Combines Chamfer distance (point displacement) with structural changes
+        (dropout/ghost points) to capture both geometric and topological perturbations.
 
-        Uses the corrected bidirectional formula with squared distances:
-        CD(A, B) = mean(||a-b||²) + mean(||b-a||²)
+        Formula:
+        - Chamfer distance captures point displacement
+        - Point count change captures dropout/ghost points as % of original cloud
+        - Total perturbation = sqrt(chamfer² + dropout_penalty²)
 
         Args:
             original: Original point cloud
             perturbed: Perturbed point cloud
-            params: Perturbation parameters (unused, kept for API compatibility)
+            params: Perturbation parameters for decoding dropout/ghost settings
 
         Returns:
-            Chamfer distance in centimeters (lower = more imperceptible)
-            Note: With squared distances, range will be larger than before
+            Combined perturbation magnitude in cm (accounts for both displacement and structure)
         """
         # Compute Chamfer distance in meters² (squared distances)
         chamfer_m2 = self.compute_chamfer_distance(original, perturbed)
 
-        # Convert to cm² then take sqrt to get cm
-        # This gives a more interpretable metric
+        # Convert to cm
         chamfer_cm = np.sqrt(chamfer_m2 * 10000)  # m² to cm²
 
-        return chamfer_cm
+        # Structural perturbation: point count change normalized by cloud size
+        # Dropout removes points, ghost adds points
+        n_orig = len(original)
+        n_pert = len(perturbed)
+        point_change_ratio = abs(n_pert - n_orig) / max(n_orig, 1)
+
+        # Convert ratio to cm-equivalent penalty (scaled to be comparable to Chamfer)
+        # A 10% dropout should contribute similarly to ~2cm Chamfer distance
+        structural_penalty_cm = point_change_ratio * 20.0  # 10% dropout = 2cm penalty
+
+        # Combined perturbation magnitude using Euclidean norm
+        # This creates a smooth trade-off between displacement and structure changes
+        total_perturbation_cm = np.sqrt(chamfer_cm**2 + structural_penalty_cm**2)
+
+        return total_perturbation_cm
 
     def random_genome(self, size: Optional[int] = None) -> np.ndarray:
         """
