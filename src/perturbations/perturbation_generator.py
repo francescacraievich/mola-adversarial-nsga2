@@ -203,21 +203,31 @@ class PerturbationGenerator:
         return np.where(curvature_weights >= threshold, 1.0, 0.3)
 
     def _apply_noise(self, perturbed, n_points, perturbation_weights, params):
-        """Apply per-point Gaussian noise with directional bias."""
+        """
+        Apply per-point Gaussian noise with directional bias.
+
+        noise_intensity controls the overall magnitude (0-max_point_shift).
+        noise_direction adds directional bias to the random noise.
+        """
         if params["noise_intensity"] <= 0.001:
             return perturbed
 
-        noise = np.random.randn(n_points, 3) * self.noise_std
+        # Generate random noise scaled by noise_intensity (not fixed noise_std!)
+        # This allows genome[3]=-1 → intensity=0 → no noise
+        #           genome[3]=1  → intensity=5cm → full noise
+        noise = np.random.randn(n_points, 3) * params["noise_intensity"]
 
         if params["spatial_correlation"] > 0.1:
             noise = self._apply_spatial_correlation(
                 perturbed[:, :3], noise, params["spatial_correlation"]
             )
 
-        directional_component = params["noise_direction"] * params["noise_intensity"]
+        # Add directional bias (30% of intensity in specified direction)
+        directional_component = params["noise_direction"] * params["noise_intensity"] * 0.3
         noise += directional_component
         noise *= perturbation_weights[:, np.newaxis]
 
+        # Clip to max_point_shift (safety limit)
         noise_norms = np.linalg.norm(noise, axis=1, keepdims=True)
         noise = np.where(
             noise_norms > self.max_point_shift,
