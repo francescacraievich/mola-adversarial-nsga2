@@ -4,6 +4,13 @@
 
 Adversarial perturbations are small, carefully crafted modifications to LiDAR point clouds that degrade SLAM performance while remaining imperceptible. This document describes the different perturbation strategies implemented and their effectiveness against MOLA SLAM.
 
+The perturbation generator implements state-of-the-art adversarial techniques based on recent research:
+
+- **FLAT**: Flux-Aware Imperceptible Adversarial Attacks (ECCV 2024)
+- **SLACK**: Attacking LiDAR-based SLAM (arXiv 2024)
+- **ICP Attack**: Adversarial attacks on ICP registration (arXiv 2403.05666)
+- **ASP**: Attribution-based Scanline Perturbation (IEEE 2024)
+
 ## Attack Objectives
 
 An effective adversarial perturbation must balance two goals:
@@ -288,15 +295,111 @@ Understanding these attacks informs defense strategies:
    - Already implemented in MOLA
    - Provides some inherent robustness
 
+## Advanced Attack Strategies (NEW)
+
+The following advanced attacks are inspired by recent research and implemented in the 17-parameter genome:
+
+### 5. Edge Attack (SLACK-inspired)
+
+The edge attack targets edges and corners that are critical for ICP matching.
+
+**How it works:**
+1. Detect edge and corner points using eigenvalue analysis
+2. Classify points: planar (λ1 ≈ λ2 >> λ3), edge (λ1 >> λ2 ≈ λ3), corner (λ1 ≈ λ2 ≈ λ3)
+3. Shift edge points perpendicular to their principal direction
+4. Maximum confusion for ICP correspondence matching
+
+**Parameters:**
+- Edge attack strength: 0-100%
+- Max edge shift: 8cm
+
+**Why it works:**
+- "Location of injection matters more than quantity" (SLACK paper)
+- Edge/corner points are critical for ICP - perturbing them has disproportionate impact
+- Shifts perpendicular to principal direction maximize alignment confusion
+
+### 6. Temporal Drift Attack (ICP Attack-inspired)
+
+The temporal drift attack applies accumulating bias across frames.
+
+**How it works:**
+1. Accumulate drift in a specified direction over time
+2. Apply drift with decay (0.98) to prevent explosion
+3. Each frame adds to accumulated drift
+4. Prevents SLAM from recognizing previously visited locations
+
+**Parameters:**
+- Temporal drift strength: 0-100%
+- Max drift per frame: 5cm
+- Drift direction: Encoded in genome
+
+**Why it works:**
+- Consistent bias accumulates over trajectory
+- Breaks loop closure detection (devastating effect)
+- SLAM cannot correct accumulated odometry drift
+
+### 7. Scanline Perturbation (ASP-inspired)
+
+The scanline attack perturbs points along their laser beam directions.
+
+**How it works:**
+1. Compute range direction for each point (sensor at origin)
+2. Apply perturbation along scanline direction
+3. Mix random (3cm std) and systematic (wave pattern) components
+4. Physically realistic - simulates particles between sensor and objects
+
+**Parameters:**
+- Scanline strength: 0-100%
+
+**Why it works:**
+- Simulates realistic sensor interference (dust, particles)
+- Hard to detect as it follows natural sensor noise patterns
+- Affects range measurements systematically
+
+### 8. Strategic Ghost Points (SLACK-inspired)
+
+Strategic placement of ghost points near geometric features.
+
+**How it works:**
+1. Detect edges and high-curvature regions
+2. Select high-feature points as bases (top 30%)
+3. Add ghost points with small offsets (2.5cm std)
+4. Ghost points are close enough to real features to confuse ICP
+
+**Parameters:**
+- Strategic ghost: 0-100%
+- Activates when > 50%
+
+**Why it works:**
+- Ghost points placed near features create ambiguous correspondences
+- ICP cannot distinguish real features from nearby ghosts
+- More effective than random ghost placement
+
+### 9. Geometric Distortion (KEY for ICP)
+
+Systematic geometric distortion to break ICP convergence.
+
+**How it works:**
+1. Apply range-dependent scaling
+2. ICP is robust to random noise but weak against systematic distortions
+3. Scaling, shearing, or range-dependent bias
+
+**Parameters:**
+- Geometric distortion strength: 0-100%
+
+**Why it works:**
+- ICP assumes point-to-point correspondence
+- Systematic distortions violate ICP assumptions
+- Breaks convergence to correct alignment
+
 ## Future Directions
 
 Potential improvements to perturbation strategies:
 
-1. **Spatially-correlated noise**: Make noise patterns more realistic
-2. **Semantic targeting**: Perturb specific object types (walls, obstacles)
-3. **Transfer attacks**: Optimize on one SLAM system, test on others
-4. **Physical perturbations**: 3D-print adversarial objects to place in environment
-5. **Online adaptive attacks**: Adjust perturbations based on SLAM state feedback
+1. **Transfer attacks**: Optimize on one SLAM system, test on others
+2. **Physical perturbations**: 3D-print adversarial objects to place in environment
+3. **Online adaptive attacks**: Adjust perturbations based on SLAM state feedback
+4. **Semantic targeting**: Perturb specific object types (walls, obstacles)
 
 ## Keyframes vs All Frames
 

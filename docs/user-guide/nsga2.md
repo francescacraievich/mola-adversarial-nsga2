@@ -1,10 +1,14 @@
-# NSGA-II Algorithm
+# NSGA-III Algorithm
 
 ## Overview
 
-NSGA-II (Non-dominated Sorting Genetic Algorithm II) is a multi-objective evolutionary algorithm used to find optimal solutions when you have conflicting objectives. In this project, we want to maximize SLAM error while minimizing the perturbation size, which are inherently conflicting goals.
+This project uses **NSGA-III** (Non-dominated Sorting Genetic Algorithm III), an advanced multi-objective evolutionary algorithm designed for better handling of many-objective optimization problems. NSGA-III improves upon NSGA-II by using reference-point based selection instead of crowding distance, providing better diversity maintenance along the Pareto front.
 
-Unlike single-objective optimization that finds one best solution, NSGA-II finds a set of Pareto-optimal solutions that represent different trade-offs between the objectives.
+In this project, we optimize two competing objectives:
+1. **Maximize SLAM localization error** (attack effectiveness)
+2. **Minimize perturbation magnitude** (imperceptibility)
+
+Unlike single-objective optimization that finds one best solution, NSGA-III finds a set of Pareto-optimal solutions that represent different trade-offs between the objectives.
 
 ## Why Multi-Objective Optimization?
 
@@ -50,14 +54,25 @@ NSGA-II ranks solutions into fronts:
 
 During selection, Front 1 solutions are preferred, then Front 2, etc.
 
-### Crowding Distance
+### Reference Points (NSGA-III)
 
-Within each front, solutions need diversity to explore different regions of the trade-off space. Crowding distance measures how isolated a solution is from its neighbors:
+NSGA-III uses **reference points** instead of crowding distance for diversity maintenance. Reference points are uniformly distributed on a normalized hyperplane and guide the search toward well-spread solutions.
+
+**Das-Dennis method**: We use Das-Dennis reference directions to generate evenly-spaced reference points:
+- For 2 objectives with 12 partitions: generates 13 reference points
+- Each solution is associated with its nearest reference point
+- Selection favors solutions in underrepresented regions
+
+This provides better diversity than crowding distance, especially for problems with 3+ objectives.
+
+### Crowding Distance (Legacy - NSGA-II)
+
+NSGA-II used crowding distance to maintain diversity:
 
 - **Large crowding distance**: Solution is in a sparse region (preferred)
 - **Small crowding distance**: Solution has many neighbors (less preferred)
 
-This maintains spread along the Pareto front and prevents convergence to a single point.
+NSGA-III's reference-point approach is generally more effective for maintaining spread along the Pareto front.
 
 ## Algorithm Steps
 
@@ -65,8 +80,9 @@ This maintains spread along the Pareto front and prevents convergence to a singl
 Generate an initial population of random solutions. Each solution is a "genome" encoding perturbations for the point cloud.
 
 In our implementation:
-- Population size: 20 individuals
-- Each genome encodes which attack strategy to apply and parameters
+- Population size: 10-13 individuals (based on reference directions)
+- Reference partitions: 12 (Das-Dennis)
+- Each genome has **17 parameters** encoding multiple attack strategies
 
 ### 2. Fitness Evaluation
 Evaluate each individual by:
@@ -118,40 +134,48 @@ Final output is Front 1 from the last generation, which approximates the true Pa
 
 ## Parameters
 
-Key parameters in our implementation:
+Key parameters in our NSGA-III implementation:
 
-- **Population size**: 20 individuals per generation
-- **Number of generations**: 20 (for 400 total evaluations)
-- **Crossover probability**: 0.9 (90% of offspring created by crossover)
-- **Mutation probability**: 0.1 (10% chance to mutate each gene)
-- **Tournament size**: 2 (binary tournament selection)
+- **Population size**: 10-13 individuals (determined by reference directions)
+- **Reference partitions**: 12 (Das-Dennis method)
+- **Number of generations**: 20 (for ~200 total evaluations)
+- **Crossover probability**: 0.9 (SBX crossover, eta=15)
+- **Mutation probability**: Polynomial mutation (eta=20)
 
 For quick testing, use smaller values:
-- Population size: 2
-- Generations: 2 (4 total evaluations)
+- Population size: 4
+- Generations: 5
+- Reference partitions: 3
 
-## Genome Encoding
+## Genome Encoding (17 Parameters)
 
-Each individual is encoded as a genome that specifies:
+Each individual is encoded as a **17-parameter genome** that combines multiple attack strategies inspired by recent research (SLACK, ICP Attack, ASP, FLAT):
 
-1. **Attack strategy**: Which perturbation type to apply
-   - Dropout: Remove random points
-   - Gaussian noise: Add random displacement
-   - Feature targeting: Perturb high-gradient points
-   - Ghost points: Add false points
+| Index | Parameter | Range | Description |
+|-------|-----------|-------|-------------|
+| 0-2 | Noise direction | [-1, 1] | Directional bias for noise (x, y, z) |
+| 3 | Noise intensity | [0, 1] | Scaled by `noise_std` config |
+| 4 | Curvature strength | [0, 1] | High-curvature point targeting |
+| 5 | Dropout rate | [0, 1] | Scaled by `max_dropout_rate` |
+| 6 | Ghost ratio | [0, 1] | Scaled by `max_ghost_points_ratio` |
+| 7-9 | Cluster direction | [-1, 1] | Direction for cluster perturbation |
+| 10 | Cluster strength | [0, 1] | Cluster perturbation intensity |
+| 11 | Spatial correlation | [0, 1] | Correlation of nearby perturbations |
+| 12 | **Geometric distortion** | [0, 1] | Range-dependent scaling (KEY for ICP) |
+| 13 | **Edge attack** | [0, 1] | SLACK-inspired edge/corner targeting |
+| 14 | **Temporal drift** | [0, 1] | Accumulating drift (breaks loop closure) |
+| 15 | **Scanline perturbation** | [0, 1] | ASP-inspired along-beam perturbation |
+| 16 | **Strategic ghost** | [0, 1] | Feature-based ghost point placement |
 
-2. **Parameters**: Strategy-specific parameters
-   - Dropout rate (0-100%)
-   - Noise standard deviation
-   - Number of ghost points
-   - Perturbation magnitude
+### Attack Combinations
 
-3. **Frame selection**: Which frames to perturb
-   - All frames
-   - Specific keyframes
-   - Loop closure frames
+The genome allows combining multiple strategies simultaneously:
 
-The genome is represented as a numpy array that pymoo can manipulate with genetic operators.
+- **High ATE, High Detectability**: Maximize all parameters
+- **Balanced Attack**: Moderate temporal drift + edge attack
+- **Stealthy Attack**: Low intensity across all parameters
+
+The genome is represented as a numpy array in range [-1, 1] that pymoo manipulates with genetic operators.
 
 ## Constraint Handling
 
@@ -225,34 +249,54 @@ After optimization, the Pareto front shows:
 Our implementation uses [pymoo](https://pymoo.org/), a Python framework for multi-objective optimization:
 
 ```python
-from pymoo.algorithms.moo.nsga2 import NSGA2
+from pymoo.algorithms.moo.nsga3 import NSGA3
+from pymoo.util.ref_dirs import get_reference_directions
 from pymoo.optimize import minimize
 
-algorithm = NSGA2(
-    pop_size=20,
-    sampling=get_sampling("real_random"),
-    crossover=get_crossover("real_sbx", prob=0.9, eta=15),
-    mutation=get_mutation("real_pm", eta=20),
-    eliminate_duplicates=True
+# Generate Das-Dennis reference directions
+ref_dirs = get_reference_directions("das-dennis", 2, n_partitions=12)
+
+algorithm = NSGA3(
+    pop_size=len(ref_dirs),  # Population size from reference directions
+    ref_dirs=ref_dirs,
 )
 
 result = minimize(
     problem,
     algorithm,
     ('n_gen', 20),
-    seed=1,
+    seed=42,
     verbose=True
 )
+
+# Access results
+pareto_front = result.F  # Fitness values (N, 2)
+pareto_set = result.X    # Genomes (N, 17)
 ```
 
 The problem definition includes:
-- Number of variables (genome length)
-- Variable bounds (min/max values)
-- Number of objectives (2: maximize ATE, minimize perturbation)
-- Evaluation function (applies perturbations and runs MOLA)
+- Number of variables: 17 (genome length)
+- Variable bounds: [-1, 1] for all parameters
+- Number of objectives: 2 (negative ATE, Chamfer distance)
+- Evaluation function: applies perturbations and runs MOLA SLAM
+
+## NSGA-III vs NSGA-II
+
+| Feature | NSGA-II | NSGA-III |
+|---------|---------|----------|
+| Diversity mechanism | Crowding distance | Reference points |
+| Scalability | Good for 2-3 objectives | Better for many objectives |
+| Parameter tuning | Minimal | Reference partitions |
+| Pareto front coverage | Can have gaps | More uniform |
+
+We use NSGA-III because:
+1. Better diversity maintenance along the Pareto front
+2. More consistent results across runs
+3. Reference-point approach is more principled
 
 ## Further Reading
 
+- Original NSGA-III paper: Deb & Jain (2014) - "An Evolutionary Many-Objective Optimization Algorithm Using Reference-Point-Based Nondominated Sorting Approach"
 - Original NSGA-II paper: Deb et al. (2002)
 - pymoo documentation: https://pymoo.org/
-- Multi-objective optimization tutorial: https://pymoo.org/getting_started/part_1.html
+- Das-Dennis reference directions: Das & Dennis (1998)

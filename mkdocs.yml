@@ -1,5 +1,5 @@
-site_name: MOLA Adversarial NSGA-II
-site_description: Multi-Objective Adversarial Perturbations for SLAM Systems using NSGA-II
+site_name: MOLA Adversarial NSGA-III
+site_description: Multi-Objective Adversarial Perturbations for SLAM Systems using NSGA-III
 site_author: Francesca Craievich
 repo_url: https://github.com/francescacraievich/mola-adversial-nsga2
 repo_name: francescacraievich/mola-adversial-nsga2
@@ -62,7 +62,7 @@ nav:
       - Installation: getting-started/installation.md
       - Quick Start: getting-started/quickstart.md
   - User Guide:
-      - NSGA-II Algorithm: user-guide/nsga2.md
+      - NSGA-III Algorithm: user-guide/nsga2.md
       - Perturbations: user-guide/perturbations.md
       - Fitness Evaluation: user-guide/fitness.md
   - API Reference:
