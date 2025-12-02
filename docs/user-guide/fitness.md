@@ -353,7 +353,7 @@ Common issues:
 
 ## Implementation
 
-The fitness evaluator is implemented in [src/optimization/run_nsga2.py](../../src/optimization/run_nsga2.py) as a pymoo Problem:
+The fitness evaluator is implemented in `src/optimization/run_nsga2.py` as a pymoo Problem:
 
 ```python
 class AdversarialPerturbationProblem(ElementwiseProblem):
